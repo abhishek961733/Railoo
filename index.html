@@ -134,11 +134,16 @@ function drawObstacles(){
     obstacles.forEach(ob=>{
         ctx.save();
         ctx.globalAlpha = 0.75; 
+
+        // --- Bobbing animation: up-down movement ---
+        ob.bobOffset += 0.5 * ob.bobDir;
+        if(ob.bobOffset > 10 || ob.bobOffset < -10) ob.bobDir *= -1;
+
         if(ob.img && ob.img.complete){
-            ctx.drawImage(ob.img, ob.x, ob.y - ob.height*0.15, ob.width, ob.height*1.3);
+            ctx.drawImage(ob.img, ob.x, ob.y + ob.bobOffset - ob.height*0.15, ob.width, ob.height*1.3);
             ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
             ctx.lineWidth = 3;
-            ctx.strokeRect(ob.x, ob.y - ob.height*0.15, ob.width, ob.height*1.3);
+            ctx.strokeRect(ob.x, ob.y + ob.bobOffset - ob.height*0.15, ob.width, ob.height*1.3);
         } else {
             ctx.fillStyle = '#ff4444';
             ctx.shadowColor = '#ff4444';
@@ -175,7 +180,9 @@ function spawnObstacle(){
         y:canvas.height-height-70,
         width:width,
         height:height,
-        img: img
+        img: img,
+        bobOffset:0,
+        bobDir:1
     });
 }
 
