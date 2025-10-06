@@ -195,7 +195,10 @@ function update(){
     if(obstacleTimer>=obstacleInterval){spawnObstacle(); obstacleTimer=0;}
     obstacles.forEach((ob,index)=>{
         ob.x-=gameSpeed; drawObstacles();
-        if(checkCollision(player)){ if(!gameOver) hitSound.play(); gameOver=true; document.getElementById('gameOver').style.display='block'; }
+        if(checkCollision(player)){ 
+            if(!gameOver) {hitSound.currentTime=0; hitSound.play().catch(()=>{});}
+            gameOver=true; document.getElementById('gameOver').style.display='block'; 
+        }
         if(ob.x+ob.width<0){obstacles.splice(index,1); score++; document.getElementById('score').textContent='Score: '+score;}
     });
     if(score>0 && score%10===0) gameSpeed=6+score/10;
@@ -207,7 +210,8 @@ window.addEventListener('keydown',e=>{
     keys[e.code]=true;
     if((e.code==='Space'||e.code==='ArrowUp')&&(player.grounded||player.jumpCount<player.maxJumps)){
         player.dy=-player.jumpForce; player.jumpCount++;
-        jumpSound.currentTime=0; jumpSound.play();
+        jumpSound.currentTime=0;
+        jumpSound.play().catch(()=>{}); 
     }
 });
 window.addEventListener('keyup',e=>{keys[e.code]=false;});
@@ -230,7 +234,12 @@ document.getElementById('startBtn').addEventListener('click',()=>{
     canvas.style.display='block';
     document.getElementById('score').style.display='block';
     document.getElementById('logo').style.display='block';
-    bgMusic.play().catch(()=>console.log("Play blocked, click to enable"));
+    
+    bgMusic.currentTime = 0;
+    bgMusic.play().catch(()=>{
+        alert("Click anywhere on the screen to enable game sounds.");
+    });
+    
     update();
 });
 
