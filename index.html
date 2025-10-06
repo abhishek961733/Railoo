@@ -196,4 +196,25 @@ function restartGame(){
 
 // ---------------- Menu Buttons ----------------
 document.getElementById('startBtn').addEventListener('click',()=>{
-    document.getElementById('homeScreen').
+    document.getElementById('homeScreen').style.display='none';
+    canvas.style.display='block';
+    document.getElementById('score').style.display='block';
+    document.getElementById('logo').style.display='block';
+    bgMusic.play().catch(()=>console.log("Play blocked, try again after click"));
+    update();
+});
+
+document.getElementById('leaderBtn').addEventListener('click',()=>{
+    document.getElementById('homeScreen').style.display='none';
+    document.getElementById('leaderboardScreen').style.display='flex';
+    const list=document.getElementById('leaderList');
+    list.innerHTML='<li>Player1 - 100</li><li>Player2 - 80</li><li>Player3 - 50</li>';
+});
+
+document.getElementById('scoreBtn').addEventListener('click',()=>{alert('Your Current Score: '+score);});
+document.getElementById('backBtn').addEventListener('click',()=>{document.getElementById('leaderboardScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';});
+
+window.addEventListener('keydown',e=>{if(e.code==='KeyR'&&gameOver) restartGame();});
+</script>
+</body>
+</html>
