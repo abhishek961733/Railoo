@@ -52,26 +52,9 @@ const ctx=canvas.getContext('2d');
 canvas.width=window.innerWidth;
 canvas.height=window.innerHeight;
 
-let player={
-    x:150,
-    y:canvas.height-120,
-    radius:40,
-    dx:0,
-    dy:0,
-    gravity:1.2,
-    jumpForce:20,
-    grounded:true,
-    jumpCount:0,
-    maxJumps:2
-};
-
+let player={x:150,y:canvas.height-120,radius:40,dx:0,dy:0,gravity:1.2,jumpForce:20,grounded:true,jumpCount:0,maxJumps:2};
 let obstacles=[];
-let obstacleInterval=120;
-let obstacleTimer=0;
-let gameSpeed=6;
-let score=0;
-let gameOver=false;
-let keys={};
+let obstacleInterval=120,obstacleTimer=0,gameSpeed=6,score=0,gameOver=false,keys={};
 
 // ---------------- Background ----------------
 let backgroundLayers=[];
@@ -85,11 +68,13 @@ for(let i=0;i<3;i++){
 
 // ---------------- Sounds ----------------
 const bgMusic = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_d1f6f2cfa8.mp3?filename=arcade-background-music-113788.mp3");
-bgMusic.loop = true;
-bgMusic.volume = 0.3;
+bgMusic.loop = true; bgMusic.volume = 0.3;
 
 const jumpSound = new Audio("https://cdn.pixabay.com/download/audio/2021/09/15/audio_eb6c1f6b9a.mp3?filename=jump-6533.mp3");
+jumpSound.volume = 0.7;
+
 const hitSound = new Audio("https://cdn.pixabay.com/download/audio/2022/03/23/audio_5f09f9b4e5.mp3?filename=arcade-game-hit-113819.mp3");
+hitSound.volume = 0.7;
 
 // ---------------- Obstacle Images ----------------
 const obstacleImageUrls = [
@@ -97,30 +82,17 @@ const obstacleImageUrls = [
   "https://pbs.twimg.com/profile_images/1975126839942152192/2Kq3qGpC_400x400.jpg"
 ];
 
-let obstacleImages = [];
-let imagesLoaded = 0;
-
+let obstacleImages=[],imagesLoaded=0;
 function preloadObstacleImages(urls, callback){
   urls.forEach((url, i) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => {
-      imagesLoaded++;
-      obstacleImages[i] = img;
-      if(imagesLoaded === urls.length) callback();
-    };
-    img.onerror = () => {
-      console.warn("Image failed to load:", url);
-      imagesLoaded++;
-      if(imagesLoaded === urls.length) callback();
-    };
-    img.src = url;
+    img.onload = () => { imagesLoaded++; obstacleImages[i]=img; if(imagesLoaded===urls.length) callback(); };
+    img.onerror = () => { imagesLoaded++; if(imagesLoaded===urls.length) callback(); };
+    img.src=url;
   });
 }
-
-preloadObstacleImages(obstacleImageUrls, () => {
-  console.log("Obstacle images loaded.");
-});
+preloadObstacleImages(obstacleImageUrls,()=>console.log("Obstacle images loaded"));
 
 // ---------------- Draw Functions ----------------
 function drawPlayer(){
@@ -142,22 +114,13 @@ function drawObstacles(){
     obstacles.forEach(ob=>{
         ctx.save();
         ctx.globalAlpha = 0.75; 
-
-        // --- Bobbing animation ---
         ob.bobOffset += 0.5 * ob.bobDir;
-        if(ob.bobOffset > 10 || ob.bobOffset < -10) ob.bobDir *= -1;
-
+        if(ob.bobOffset>10||ob.bobOffset<-10) ob.bobDir*=-1;
         if(ob.img && ob.img.complete){
             ctx.drawImage(ob.img, ob.x, ob.y + ob.bobOffset - ob.height*0.15, ob.width, ob.height*1.3);
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-            ctx.lineWidth = 3;
+            ctx.strokeStyle="rgba(255,255,255,0.12)"; ctx.lineWidth=3;
             ctx.strokeRect(ob.x, ob.y + ob.bobOffset - ob.height*0.15, ob.width, ob.height*1.3);
-        } else {
-            ctx.fillStyle = '#ff4444';
-            ctx.shadowColor = '#ff4444';
-            ctx.shadowBlur = 15;
-            ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
-        }
+        } else { ctx.fillStyle='#ff4444'; ctx.shadowColor='#ff4444'; ctx.shadowBlur=15; ctx.fillRect(ob.x,ob.y,ob.width,ob.height); }
         ctx.restore();
     });
 }
@@ -167,8 +130,7 @@ function drawBackground(){
         layer.forEach(el=>{
             ctx.beginPath();
             ctx.arc(el.x,el.y,el.size,0,Math.PI*2);
-            ctx.fillStyle=el.color;
-            ctx.fill();
+            ctx.fillStyle=el.color; ctx.fill();
             el.y+=el.dy;
             if(el.y-el.size>canvas.height) el.y=-el.size;
         });
@@ -176,60 +138,36 @@ function drawBackground(){
 }
 
 // ---------------- Game Functions ----------------
-let nextImageIndex = 0;
-
+let nextImageIndex=0;
 function spawnObstacle(){
-    const width=Math.random()*60+60;
-    const height=Math.random()*60+60;
-    const img = obstacleImages[nextImageIndex];
-    nextImageIndex = (nextImageIndex + 1) % obstacleImages.length;
-    obstacles.push({
-        x:canvas.width,
-        y:canvas.height-height-70,
-        width:width,
-        height:height,
-        img: img,
-        bobOffset:0,
-        bobDir:1
-    });
+    const width=Math.random()*60+60, height=Math.random()*60+60;
+    const img=obstacleImages[nextImageIndex]; nextImageIndex=(nextImageIndex+1)%obstacleImages.length;
+    obstacles.push({x:canvas.width,y:canvas.height-height-70,width:width,height:height,img:img,bobOffset:0,bobDir:1});
 }
 
 function checkCollision(r){
     for(let ob of obstacles){
-        if(r.x+r.radius*2>ob.x && r.x<ob.x+ob.width && r.y+r.radius*2>ob.y && r.y<ob.y+ob.height){return true;}
-    }
-    return false;
+        if(r.x+r.radius*2>ob.x && r.x<ob.x+ob.width && r.y+r.radius*2>ob.y && r.y<ob.y+ob.height) return true;
+    } return false;
 }
 
 function update(){
     if(gameOver) return;
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawBackground();
-    player.dy+=player.gravity;
-    player.y+=player.dy;
-    player.x+=player.dx;
-
+    player.dy+=player.gravity; player.y+=player.dy; player.x+=player.dx;
     if(player.y+player.radius*2>=canvas.height-70){player.y=canvas.height-70-player.radius*2;player.dy=0;player.grounded=true;player.jumpCount=0;}
     else player.grounded=false;
-    if(player.x<0) player.x=0;
-    if(player.x+player.radius*2>canvas.width) player.x=canvas.width-player.radius*2;
-
+    if(player.x<0) player.x=0; if(player.x+player.radius*2>canvas.width) player.x=canvas.width-player.radius*2;
     drawPlayer();
 
     obstacleTimer++;
-    if(obstacleTimer>=obstacleInterval){spawnObstacle();obstacleTimer=0;}
-
+    if(obstacleTimer>=obstacleInterval){spawnObstacle(); obstacleTimer=0;}
     obstacles.forEach((ob,index)=>{
-        ob.x-=gameSpeed;
-        drawObstacles();
-        if(checkCollision(player)){
-            if(!gameOver) hitSound.play();
-            gameOver=true;
-            document.getElementById('gameOver').style.display='block';
-        }
-        if(ob.x+ob.width<0){obstacles.splice(index,1);score++;document.getElementById('score').textContent='Score: '+score;}
+        ob.x-=gameSpeed; drawObstacles();
+        if(checkCollision(player)){ if(!gameOver) hitSound.play(); gameOver=true; document.getElementById('gameOver').style.display='block'; }
+        if(ob.x+ob.width<0){obstacles.splice(index,1); score++; document.getElementById('score').textContent='Score: '+score;}
     });
-
     if(score>0 && score%10===0) gameSpeed=6+score/10;
     requestAnimationFrame(update);
 }
@@ -238,51 +176,24 @@ function update(){
 window.addEventListener('keydown',e=>{
     keys[e.code]=true;
     if((e.code==='Space'||e.code==='ArrowUp')&&(player.grounded||player.jumpCount<player.maxJumps)){
-        player.dy=-player.jumpForce;
-        player.jumpCount++;
-        jumpSound.currentTime=0;
-        jumpSound.play();
+        player.dy=-player.jumpForce; player.jumpCount++;
+        jumpSound.currentTime=0; jumpSound.play();
     }
 });
 window.addEventListener('keyup',e=>{keys[e.code]=false;});
 
 function handleMovement(){
-    if(keys['ArrowLeft']) player.dx=-6;
-    else if(keys['ArrowRight']) player.dx=6;
-    else player.dx=0;
+    if(keys['ArrowLeft']) player.dx=-6; else if(keys['ArrowRight']) player.dx=6; else player.dx=0;
     requestAnimationFrame(handleMovement);
 }
 handleMovement();
 
 function restartGame(){
-    obstacles=[];player.y=canvas.height-120;player.dy=0;player.x=150;score=0;gameOver=false;player.jumpCount=0;
-    document.getElementById('score').textContent='Score: 0';
-    document.getElementById('gameOver').style.display='none';
+    obstacles=[]; player.y=canvas.height-120; player.dy=0; player.x=150; score=0; gameOver=false; player.jumpCount=0;
+    document.getElementById('score').textContent='Score: 0'; document.getElementById('gameOver').style.display='none';
     update();
 }
 
 // ---------------- Menu Buttons ----------------
 document.getElementById('startBtn').addEventListener('click',()=>{
-    document.getElementById('homeScreen').style.display='none';
-    canvas.style.display='block';
-    document.getElementById('score').style.display='block';
-    document.getElementById('logo').style.display='block';
-    bgMusic.play();
-    update();
-});
-
-document.getElementById('leaderBtn').addEventListener('click',()=>{
-    document.getElementById('homeScreen').style.display='none';
-    document.getElementById('leaderboardScreen').style.display='flex';
-    const list=document.getElementById('leaderList');
-    list.innerHTML='<li>Player1 - 100</li><li>Player2 - 80</li><li>Player3 - 50</li>';
-});
-
-document.getElementById('scoreBtn').addEventListener('click',()=>{alert('Your Current Score: '+score);});
-document.getElementById('backBtn').addEventListener('click',()=>{document.getElementById('leaderboardScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';});
-
-window.addEventListener('keydown',e=>{if(e.code==='KeyR'&&gameOver) restartGame();});
-</script>
-
-</body>
-</html>
+    document.getElementById('homeScreen').
