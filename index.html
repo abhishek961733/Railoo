@@ -1,240 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>THE RIALO Ultimate HQ Runner</title>
-<style>
-body, html{margin:0;padding:0;overflow:hidden;font-family:sans-serif;background:#0b0f14;color:white;}
-#homeScreen{position:absolute;width:100%;height:100%;background:#0b0f14;display:flex;flex-direction:column;justify-content:center;align-items:center;}
-#homeScreen h1,h2{text-align:center;margin:10px;}
-.menuBtn{margin:10px;padding:10px 30px;font-size:18px;cursor:pointer;background:#00ffff;color:#0b0f14;border:none;border-radius:8px;transition:0.3s;}
-.menuBtn:hover{background:#00aaaa;}
-#gameCanvas{display:none;}
-#score{position:absolute;top:16px;left:16px;font-size:24px;color:#00ffff;text-shadow:1px 1px 3px black;display:none;}
-#gameOver{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;color:red;display:none;text-shadow:2px 2px 5px black;text-align:center;}
-#logo{position:absolute;top:20px;left:50%;transform:translateX(-50%);width:80px;height:80px;border-radius:50%;overflow:hidden;border:5px solid rgba(255,255,255,0.1);box-shadow:0 0 30px rgba(0,200,255,0.5),0 0 40px rgba(0,255,255,0.3) inset;animation: rotateLogo 16s linear infinite;}
-#logo img{width:100%;height:100%;object-fit:cover;}
-@keyframes rotateLogo{0%{transform:translateX(-50%) rotate(0deg);}100%{transform:translateX(-50%) rotate(360deg);} }
-#leaderboardScreen{position:absolute;width:100%;height:100%;background:#0b0f14;display:none;flex-direction:column;justify-content:center;align-items:center;}
-</style>
-</head>
-<body>
-
-<!-- Home Screen -->
-<div id="homeScreen">
-    <h1>THR RIALO ULTIMATE</h1>
-    <h2>HQ RUNNER</h2>
-    <button class="menuBtn" id="startBtn">Start Game</button>
-    <button class="menuBtn" id="leaderBtn">Leaderboard</button>
-    <button class="menuBtn" id="scoreBtn">Check Score</button>
-</div>
-
-<!-- Leaderboard Screen -->
-<div id="leaderboardScreen">
-    <h1>Leaderboard</h1>
-    <ul id="leaderList"></ul>
-    <button class="menuBtn" id="backBtn">Back</button>
-</div>
-
-<canvas id="gameCanvas"></canvas>
-<div id="score">Score: 0</div>
-<div id="gameOver">Game Over! Press R to Restart</div>
-<div id="logo">
-  <img src="https://pbs.twimg.com/profile_images/1950265537784926208/qbjSWMDP_400x400.jpg" alt="RIALO Logo">
-</div>
-
-<script>
-// ---------------- Variables ----------------
-const canvas=document.getElementById('gameCanvas');
-const ctx=canvas.getContext('2d');
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
-
-let player={
-    x:150,
-    y:canvas.height-100,
-    radius:25,
-    dx:0,
-    dy:0,
-    gravity:1.2,
-    jumpForce:18,
-    grounded:true,
-    jumpCount:0,
-    maxJumps:2
-};
-
-let obstacles=[];
-let obstacleInterval=120, obstacleTimer=0, gameSpeed=6, score=0, gameOver=false, keys={};
-
-// ---------------- Background ----------------
-let backgroundLayers=[];
-for(let i=0;i<3;i++){
-    let layer=[];
-    for(let j=0;j<50;j++){
-        layer.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,size:Math.random()*(20-i*5)+5,dy:0.2*(i+1),color:`rgba(0,200,255,${0.05+0.05*i})`});
-    }
-    backgroundLayers.push(layer);
-}
-
-// ---------------- Sounds ----------------
-const bgMusic = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_d1f6f2cfa8.mp3?filename=arcade-background-music-113788.mp3");
-bgMusic.loop = true; bgMusic.volume = 0.3;
-
-const jumpSound = new Audio("https://cdn.pixabay.com/download/audio/2021/09/15/audio_eb6c1f6b9a.mp3?filename=jump-6533.mp3");
-jumpSound.volume = 0.7;
-
-const hitSound = new Audio("https://cdn.pixabay.com/download/audio/2022/03/23/audio_5f09f9b4e5.mp3?filename=arcade-game-hit-113819.mp3");
-hitSound.volume = 0.7;
-
-// ---------------- Obstacle Images ----------------
-const obstacleImageUrls = [
-  "https://pbs.twimg.com/profile_images/1975127313164460032/svHbtjo__400x400.jpg",
-  "https://pbs.twimg.com/profile_images/1975126839942152192/2Kq3qGpC_400x400.jpg"
-];
-
-let obstacleImages=[],imagesLoaded=0;
-function preloadObstacleImages(urls, callback){
-  urls.forEach((url, i) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => { imagesLoaded++; obstacleImages[i]=img; if(imagesLoaded===urls.length) callback(); };
-    img.onerror = () => { imagesLoaded++; if(imagesLoaded===urls.length) callback(); };
-    img.src=url;
-  });
-}
-preloadObstacleImages(obstacleImageUrls,()=>console.log("Obstacle images loaded"));
-
-// ---------------- Draw Functions ----------------
-function drawPlayer(){
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(player.x+player.radius, player.y+player.radius, player.radius,0,Math.PI*2);
-    ctx.closePath();
-    ctx.clip();
-    ctx.drawImage(document.querySelector('#logo img'), player.x, player.y, player.radius*2, player.radius*2);
-    ctx.shadowColor = '#00ffff';
-    ctx.shadowBlur = 15;
-    ctx.strokeStyle = '#00ffff';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.restore();
-}
-
-function drawObstacles(){
-    obstacles.forEach(ob=>{
-        ctx.save();
-        ctx.globalAlpha = 0.8;
-        ob.y = ob.baseY + Math.sin(ob.bobAngle) * (canvas.height/4);
-        ob.bobAngle += 0.03;
-
-        if(ob.img && ob.img.complete){
-            ctx.beginPath();
-            ctx.arc(ob.x + ob.width/2, ob.y + ob.height/2, ob.width/2, 0, Math.PI*2);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(ob.img, ob.x, ob.y, ob.width, ob.height);
-        } else {
-            ctx.beginPath();
-            ctx.arc(ob.x + ob.width/2, ob.y + ob.height/2, ob.width/2, 0, Math.PI*2);
-            ctx.fillStyle='#ff4444';
-            ctx.fill();
-        }
-        ctx.restore();
-    });
-}
-
-function drawBackground(){
-    backgroundLayers.forEach(layer=>{
-        layer.forEach(el=>{
-            ctx.beginPath();
-            ctx.arc(el.x,el.y,el.size,0,Math.PI*2);
-            ctx.fillStyle=el.color; ctx.fill();
-            el.y+=el.dy;
-            if(el.y-el.size>canvas.height) el.y=-el.size;
-        });
-    });
-}
-
-// ---------------- Game Functions ----------------
-let nextImageIndex=0;
-function spawnObstacle(){
-    const size=50 + Math.random()*30;
-    const img=obstacleImages[nextImageIndex]; nextImageIndex=(nextImageIndex+1)%obstacleImages.length;
-    obstacles.push({
-        x:canvas.width,
-        baseY: canvas.height - size - 100,
-        width: size,
-        height: size,
-        img: img,
-        bobAngle: Math.random()*Math.PI*2
-    });
-}
-
-function checkCollision(r){
-    for(let ob of obstacles){
-        const dx = (r.x+r.radius) - (ob.x + ob.width/2);
-        const dy = (r.y+r.radius) - (ob.y + ob.height/2);
-        const distance = Math.sqrt(dx*dx + dy*dy);
-        if(distance < r.radius + ob.width/2) return true;
-    }
-    return false;
-}
-
-function update(){
-    if(gameOver) return;
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    drawBackground();
-    player.dy+=player.gravity; player.y+=player.dy; player.x+=player.dx;
-    if(player.y+player.radius*2>=canvas.height-70){player.y=canvas.height-70-player.radius*2;player.dy=0;player.grounded=true;player.jumpCount=0;}
-    else player.grounded=false;
-    if(player.x<0) player.x=0; if(player.x+player.radius*2>canvas.width) player.x=canvas.width-player.radius*2;
-    drawPlayer();
-
-    obstacleTimer++;
-    if(obstacleTimer>=obstacleInterval){spawnObstacle(); obstacleTimer=0;}
-    obstacles.forEach((ob,index)=>{
-        ob.x-=gameSpeed; drawObstacles();
-        if(checkCollision(player)){ 
-            if(!gameOver) {hitSound.currentTime=0; hitSound.play().catch(()=>{});}
-            gameOver=true; document.getElementById('gameOver').style.display='block'; 
-        }
-        if(ob.x+ob.width<0){obstacles.splice(index,1); score++; document.getElementById('score').textContent='Score: '+score;}
-    });
-    if(score>0 && score%10===0) gameSpeed=6+score/10;
-    requestAnimationFrame(update);
-}
-
-// ---------------- Controls ----------------
-window.addEventListener('keydown',e=>{
-    keys[e.code]=true;
-    if((e.code==='Space'||e.code==='ArrowUp')&&(player.grounded||player.jumpCount<player.maxJumps)){
-        player.dy=-player.jumpForce; player.jumpCount++;
-        jumpSound.currentTime=0;
-        jumpSound.play().catch(()=>{}); 
-    }
-});
-window.addEventListener('keyup',e=>{keys[e.code]=false;});
-
-function handleMovement(){
-    if(keys['ArrowLeft']) player.dx=-5; else if(keys['ArrowRight']) player.dx=5; else player.dx=0;
-    requestAnimationFrame(handleMovement);
-}
-handleMovement();
-
-function restartGame(){
-    obstacles=[]; player.y=canvas.height-100; player.dy=0; player.x=150; score=0; gameOver=false; player.jumpCount=0;
-    document.getElementById('score').textContent='Score: 0'; document.getElementById('gameOver').style.display='none';
-    update();
-}
-
-// ---------------- Menu Buttons ----------------
 document.getElementById('startBtn').addEventListener('click',()=>{
     document.getElementById('homeScreen').style.display='none';
     canvas.style.display='block';
     document.getElementById('score').style.display='block';
     document.getElementById('logo').style.display='block';
     
+    // User interaction ke saath play
     bgMusic.currentTime = 0;
     bgMusic.play().catch(()=>{
         alert("Click anywhere on the screen to enable game sounds.");
@@ -243,17 +13,18 @@ document.getElementById('startBtn').addEventListener('click',()=>{
     update();
 });
 
-document.getElementById('leaderBtn').addEventListener('click',()=>{
-    document.getElementById('homeScreen').style.display='none';
-    document.getElementById('leaderboardScreen').style.display='flex';
-    const list=document.getElementById('leaderList');
-    list.innerHTML='<li>Player1 - 100</li><li>Player2 - 80</li><li>Player3 - 50</li>';
+// Jump sound
+window.addEventListener('keydown',e=>{
+    keys[e.code]=true;
+    if((e.code==='Space'||e.code==='ArrowUp')&&(player.grounded||player.jumpCount<player.maxJumps)){
+        player.dy=-player.jumpForce; player.jumpCount++;
+        jumpSound.currentTime=0;
+        jumpSound.play().catch(()=>{}); // ignore block
+    }
 });
 
-document.getElementById('scoreBtn').addEventListener('click',()=>{alert('Your Current Score: '+score);});
-document.getElementById('backBtn').addEventListener('click',()=>{document.getElementById('leaderboardScreen').style.display='none';document.getElementById('homeScreen').style.display='flex';});
-
-window.addEventListener('keydown',e=>{if(e.code==='KeyR'&&gameOver) restartGame();});
-</script>
-</body>
-</html>
+// Hit sound
+function playHitSound(){
+    hitSound.currentTime=0;
+    hitSound.play().catch(()=>{}); 
+}
